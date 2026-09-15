@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "title": "Learn Node.js",
+    "desc": "Study Node.js modules and the event loop",
+    "completed": false
+  },
+  {
+    "id": 2,
+    "title": "Build Todo API",
+    "desc": "Create CRUD APIs using Express.js",
+    "completed": false
+  },
+  {
+    "id": 3,
+    "title": "Practice React",
+    "desc": "Build a small React project using useState and useEffect",
+    "completed": true
+  },
+  {
+    "id": 4,
+    "title": "Learn MongoDB",
+    "desc": "Understand databases, collections, and CRUD operations",
+    "completed": false
+  },
+  {
+    "id": 5,
+    "title": "Connect Frontend and Backend using CORS",
+    "desc": "Connect the React frontend with the Express backend API",
+    "completed": false
+  },
+  {
+    "id": 1787199299595,
+    "title": "Build Todo API",
+    "desc": "Create CRUD APIs using Express.js",
+    "completed": false
+  }
+]

@@ -3,6 +3,7 @@ const questionInput = document.getElementById("question");
 const answerDiv = document.getElementById("answer");
 const submitBtn = document.getElementById("submitBtn");
 
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const question = questionInput.value.trim();

@@ -3,6 +3,7 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
+
 PORT = process.env.PORT || 5000;
 
 app.use(express.json());
@@ -54,6 +55,7 @@ app.post("/ask", async (req, res) => {
         message: "Gemini API request failed",
       });
     }
+    
     const data = await response.json();
 
     const answer = data.candidates?.[0]?.content?.parts?.[0]?.text;
