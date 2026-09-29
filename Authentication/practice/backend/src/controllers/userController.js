@@ -1,7 +1,12 @@
 import { User } from "../models/userModel.js";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { RefreshToken } from "../models/refreshTokenModel.js";
+import { EmailVerification } from "../models/EmailVerification.js";
+import { generateVerificationToken } from "../utils/generateToken.js";
+import { sendEmail } from "../utils/sendEmail.js";
+import { LoginOtp } from "../models/loginOTP.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -12,7 +17,9 @@ export const registerUser = async (req, res) => {
         message: "User information is incomplete.",
       });
     }
+
     const exist = await User.findOne({ email });
+
     if (exist) {
       return res.status(401).json({
         message: "User with this email already exist.",
@@ -27,11 +34,46 @@ export const registerUser = async (req, res) => {
     });
 
     await user.save();
+
+    // 1. Generate verification token
+    const token = generateVerificationToken();
+
+    // 2. Save verification token
+    await EmailVerification.create({
+      userId: user._id,
+      token: token,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    // 3. Create verification link
+    const verificationLink = `http://localhost:3000/users/verify-email?token=${token}`;
+
+    // 4. Send verification email
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your email",
+      html: `
+    <h2>Welcome ${user.name}</h2>
+
+    <p>Thanks for registering.</p>
+
+    <p>Please click the button below to verify your email.</p>
+
+    <a href="${verificationLink}">
+      Verify Email
+    </a>
+
+    <p>This link expires in 15 minutes.</p>
+  `,
+    });
+
     res.status(201).json({
-      message: "User registered successfully..",
+      message: "User registered successfully. Verification email sent.",
       data: user,
     });
   } catch (error) {
+    console.log(error);
+
     res.status(500).json({
       message: error.message,
     });
@@ -63,41 +105,63 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const access_token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.ACCESS_TOKEN,
-      {
-        expiresIn: "15m",
-      },
-    );
-    const refresh_token = jwt.sign(
-      { userId: user._id, email: user.email },
-      process.env.REFRESH_TOKEN,
-      {
-        expiresIn: "7d",
-      },
-    );
-    await RefreshToken.create({
-      userId: user._id,
-      token: refresh_token,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        message: "Please verify your email first",
+      });
+    }
+
+    // Check whether an OTP already exists
+
+    const existingOtp = await LoginOtp.findOne({ user: user._id });
+
+    if (existingOtp) {
+      const cooldown = 60 * 1000;
+      const timePassed = Date.now() - existingOtp.createdAt.getTime();
+
+      if (timePassed < cooldown) {
+        const remainingSeconds = Math.ceil((cooldown - timePassed) / 1000);
+
+        return res.status(429).json({
+          message: `Please wait ${remainingSeconds} seconds before requesting another OTP.`,
+        });
+      }
+    }
+
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    // Remove previous OTP
+    await LoginOtp.deleteMany({
+      user: user._id,
     });
 
-    res.cookie("access_token", access_token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+    await LoginOtp.create({
+      user: user._id,
+      otp: hashedOtp,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
-    res.cookie("refresh_token", refresh_token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+    await sendEmail({
+      to: user.email,
+      subject: "Your Login OTP",
+      html: `
+        <h2>Login Verification</h2>
+
+        <p>Hello ${user.name},</p>
+
+        <p>Your login OTP is:</p>
+
+        <h1>${otp}</h1>
+
+        <p>This OTP expires in 5 minutes.</p>
+      `,
     });
 
-    res.status(200).json({
-      message: "User loggedIn successfully..!!",
-      access_token,
+    return res.status(200).json({
+      message: "OTP sent to your email",
     });
   } catch (error) {
     res.status(500).json({

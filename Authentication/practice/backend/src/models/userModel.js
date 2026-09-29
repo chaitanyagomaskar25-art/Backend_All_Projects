@@ -13,13 +13,18 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    select: false
+    select: false,
   },
   role: {
     type: String,
     enum: ["user", "admin"],
-    default: "user"
+    default: "user",
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
   }
+
 });
 
 userSchema.pre("save", async function () {
